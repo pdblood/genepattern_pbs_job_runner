@@ -1,7 +1,4 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package edu.iu.gp;
 
 import java.io.BufferedInputStream;
@@ -11,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import org.apache.log4j.Logger;
 import org.genepattern.drm.DrmJobSubmission;
 
@@ -50,22 +48,12 @@ public class PbsJob {
     private ArrayList<String> afterOK = new ArrayList<String>();
     private HashMap<String, String> variables = new HashMap<String, String>();
     private String SubmitArgs = "N/A";
-    private String ctime = "N/A";
-    private String qtime = "N/A";
-    private String mtime = "N/A";
-    private String stime = "N/A";
-    private String comp_time = "N/A";
-    private String owner = "N/A";
     private String executableFile = "N/A";
     private String epilogueFile = "N/A";
     private String wallTime = "1:00:00";
+    private String ctime = "N/A";
     private String queue = "N/A";
-    private String vmem = "64gb";
-    private String status = "N/A";
-    private String executeNode = "N/A";
-    private String ellapsedTime = "N/A";
-    private String usedMem = "N/A";
-    private String usedcput = "N/A";
+    private String vmem = "4gb";
     private String errrorPath = "N/A";
     private String outputPath = "N/A";
     private String VariablesList = "N/A";
@@ -95,11 +83,16 @@ public class PbsJob {
 
         // Iterate the commandLine array to build the real command string
         // for further job submission
-        final String[] commandLine = drmJobSubmission.getCommandLine().toArray(new String[0]);
-        String pbsCommand = "";
-        for (String command : commandLine) {
-            pbsCommand += command + " ";
+        // initialize the commandLine as a string.
+        String pbsCommand = wrapCommandLineArgsInSingleQuotes(drmJobSubmission.getCommandLine());
+
+        // if there is a logFile, stream stdout from the module to the stdoutFile
+        final String jobReportFilename;
+        if (drmJobSubmission.getLogFile() != null) {
+            pbsCommand += " >> " + wrapInSingleQuotes(drmJobSubmission.getStdoutFile().getAbsolutePath());
         }
+
+           
 
         // We will create a PBS script file and store it in the working
         // diretoy for further job submission
@@ -225,18 +218,6 @@ public class PbsJob {
 
         setPbsScript(st);
 
-        //******TODO: Remove this in case of Release; ******/
-        BufferedWriter out = null;
-        try {
-            FileWriter fstream = new FileWriter("/N/dc2/scratch/gpserver/pbscommand.txt", true); //true tells to append data.
-            out = new BufferedWriter(fstream);
-            out.write(st + "\n");
-            out.close();
-
-        } catch (IOException e) {
-            System.err.println("Error: " + e.getMessage());
-        }
-        //**************************************************/
     }
 
     public void setPbsScript(String st) {
@@ -245,6 +226,39 @@ public class PbsJob {
 
     public String getPbsScript() {
         return pbsScript;
+    }
+
+    
+     /**
+     * Construct a command line string from the list of args.
+     * Wrap each arg in single quote characters, make sure to escape any single quote characters in the args.
+     * 
+     * @param commandLine
+     * @return
+     */
+    private String wrapCommandLineArgsInSingleQuotes(List<String> commandLine) {
+        String rval = "";
+        boolean first = true;
+        for(String arg : commandLine) {
+            arg = wrapInSingleQuotes(arg);
+            if (first) {
+                first = false;
+            }
+            else {
+                rval += " ";
+            }
+            rval += arg;
+        }
+        return rval;
+    }
+
+    private String wrapInSingleQuotes(String arg) {
+        if (arg.contains("'")) {
+            // replace each ' with '\''
+            arg = arg.replace("'", "'\\''");
+        }
+        arg = "'"+arg+"'";
+        return arg;
     }
 
 
@@ -258,21 +272,8 @@ public String toString() {
     StringBuffer sb = new StringBuffer();
     sb.append("Job ID: " + this.id + "\n");
     sb.append("Job Name: " + this.Name + "\n");
-    sb.append("Job Owner: " + this.owner + "\n");
-    sb.append("Job Status: " + this.status + "\n");
     sb.append("Job Queue: " + this.queue + "\n");
-    sb.append("\n");
-    sb.append("Resources\n");
-    sb.append("CPU Time: " + this.usedcput + "\n");
-    sb.append("Mem Used: " + this.usedMem + "\n");
-    sb.append("Used WallTime: " + this.ellapsedTime + "\n");
-    sb.append("execute Node : " + this.executeNode + "\n");
-    sb.append("\nTimes:\n");
-    sb.append("ctime: " + this.ctime + "\n");
-    sb.append("qtime:" + qtime + "\n");
-    sb.append("mtime: " + mtime + "\n");
-    sb.append("\n");
-    sb.append("Files\n");
+    sb.append("Wall Time:" + this.ctime + "\n");
     sb.append("Output File: " + this.outputPath + "\n");
     sb.append("Error File: " + this.errrorPath + "\n");
     return sb.toString();
@@ -328,7 +329,7 @@ public String toString() {
     }
 
     /**
-     * @param ppn the ppn to set
+     * @param ppn the processors per node to set
      */
     public void setHostName(String hostName) {
         this.hostName = hostName;
@@ -371,14 +372,14 @@ public String toString() {
     }
 
     /**
-     * @return the wallTime
+     * @return the cpu Time
      */
     public String getcTime() {
         return ctime;
     }
 
     /**
-     * @param wallTime the wallTime to set
+     * @param ctime the cpu Time to set
      */
     public void setCTime(String ctime) {
         this.ctime = ctime;
@@ -412,19 +413,6 @@ public String toString() {
         this.queue = queue;
     }
 
-    /**
-     * @return the executeNode
-     */
-    public String getExecuteNode() {
-        return executeNode;
-    }
-
-    /**
-     * @param executeNode the executeNode to set
-     */
-    public void setExecuteNode(String executeNode) {
-        this.executeNode = executeNode;
-    }
 
     /**
      * @return the errrorPath

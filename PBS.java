@@ -1,8 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package edu.iu.gp;
 
 import java.io.BufferedInputStream;
@@ -177,60 +173,6 @@ public class PBS {
         return true;
     }
 
-    public static String qstat2(String pbsJobId) throws IOException, InterruptedException, PbsException {
-
-        // we need to parse the gp id to dirid and pbs id
-        //String[] Info = getJobInfo(pbsId + "@" + clusterName);
-        String[] Info = getJobInfo2(pbsJobId);
-
-        String header = "";
-        String value = "";
-        String[] line;
-
-        for (int i = 0; i < Info.length; i++) {
-            if (Info[i].contains("=")) {
-                line = Info[i].split("=", 2);
-            } else {
-                line = Info[i].split(":", 2);
-            }
-            header = line[0].trim();
-            //System.out.println("Header = " + header);
-            value = line[1].trim();
-            // System.out.println("value = " + value);
-
-            if ("job_state".equals(header)) {
-                return value;
-            }
-        }
-
-        return null;
-    }
-
-    private static String[] getJobInfo2(String pbsJobId) throws IOException, InterruptedException, PbsException {
-
-        Process p = Runtime.getRuntime().exec("qstat -f " + pbsJobId);
-        p.waitFor();
-
-        BufferedInputStream errStream = new BufferedInputStream(p.getErrorStream());
-
-        if (errStream.available() > 0) {
-            byte[] errdata = new byte[errStream.available()];
-            errStream.read(errdata, 0, errStream.available());
-            p.getOutputStream().close();
-            p.getErrorStream().close();
-            errStream.close();
-            throw new PbsException((new String(errdata)));
-        }
-
-        BufferedInputStream ef = new BufferedInputStream(p.getInputStream());
-        byte[] data = new byte[ef.available()];
-        ef.read(data, 0, ef.available());
-        ef.close();
-        p.getOutputStream().close();
-        p.getErrorStream().close();
-        String Result = new String(data);
-        return Result.split("\n");
-    }
 
     public static boolean hasErrorsInStdout(File stderr) throws IOException {
 
