@@ -10,4 +10,6 @@ Requirements:
     cluster with the same username. 
 (5) TORQUE libraries should be installed on the GenePattern server hosting machine and the
     absoulate path to its execuatable binaries should be added into PATH variabe. 
- 
+(6) MOAB libraries should be installed on the GenePattern server hosting machine and the
+    absoulate path to its execuatable binaries should be added into PATH variabe. In addition,
+    the moab cllient server key pairs shoule be properly set up.
