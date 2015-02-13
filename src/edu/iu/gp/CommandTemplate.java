@@ -87,7 +87,7 @@ public class CommandTemplate {
         epiOut.write(epiCommand + "\n");
 
         epiOut.close();
-
+  
         this.epiFile = epiOutFile.getAbsolutePath();
 
         

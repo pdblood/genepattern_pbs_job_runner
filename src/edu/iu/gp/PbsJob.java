@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import org.apache.log4j.Logger;
 import org.genepattern.drm.DrmJobSubmission;
+import org.genepattern.drm.Memory;
 
 /**
  *
@@ -69,7 +70,7 @@ public class PbsJob {
     public PbsJob(DrmJobSubmission drmJobSubmission) throws IOException {
 
         // set the PBS job name
-        this.Name = "gp-job-" + drmJobSubmission.getGpJobNo();
+        this.Name = "gp-job-" + drmJobSubmission.getGpJobNo() + "-" + drmJobSubmission.getJobContext().getUserId();
 
         // Get job running directory
         String workDir = drmJobSubmission.getWorkingDir().getAbsolutePath();
@@ -117,6 +118,12 @@ public class PbsJob {
         if (drmJobSubmission.getCpuCount() != null) {
             this.ppn = drmJobSubmission.getCpuCount().toString();
         }
+        
+        if (drmJobSubmission.getMemory() != null) {
+            Memory jobMem = drmJobSubmission.getMemory();
+            this.vmem = ((long) Math.ceil(jobMem.numGb())) + "gb";
+            log.debug("PBS default memory: " + this.vmem);
+        }
 
         if (drmJobSubmission.getExtraArgs() != null && drmJobSubmission.getExtraArgs().size() > 0) {
             String extraArgs = drmJobSubmission.getExtraArgs().toString();
@@ -128,21 +135,22 @@ public class PbsJob {
             this.hostName = drmJobSubmission.getProperty("pbs.host");
         }
 
-        if (drmJobSubmission.getProperty("pbs.mem") != null) {
-            this.mem = drmJobSubmission.getProperty("pbs.mem").toString();
-        }
+        //if (drmJobSubmission.getProperty("pbs.mem") != null) {
+        //    this.mem = drmJobSubmission.getProperty("pbs.mem").toString();
+        //}
 
-        if (drmJobSubmission.getProperty("pbs.ppn") != null) {
-            this.ppn = drmJobSubmission.getProperty("pbs.ppn").toString();
-        }
+        //if (drmJobSubmission.getProperty("pbs.ppn") != null) {
+        //    this.ppn = drmJobSubmission.getProperty("pbs.ppn").toString();
+        //}
 
         if (drmJobSubmission.getProperty("pbs.cput") != null) {
             this.ctime = drmJobSubmission.getProperty("pbs.cput").toString();
         }
 
-        if (drmJobSubmission.getProperty("pbs.vmem") != null) {
-            this.vmem = drmJobSubmission.getProperty("pbs.vmem").toString();
-        }
+        //if (drmJobSubmission.getProperty("pbs.vmem") != null) {
+        //    this.vmem = drmJobSubmission.getProperty("pbs.vmem").toString();
+        //    log.debug("PBS memory: " + this.vmem);
+        //}
         
     }
 
