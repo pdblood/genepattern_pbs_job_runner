@@ -161,7 +161,7 @@ public class PbsJobRunner implements JobRunner {
                 else if (pbsJobStatus.trim().compareToIgnoreCase("C") == 0) {
 
                     File stderr = drmJobRecord.getStderrFile();
-                    File epilogueOut = new File(workDirPath, "epilogue.pbs");
+                    File epilogueOut = new File(workDirPath, ".epilogue.pbs");
 
                     // We will need to check whether the epilogue.pbs has 
                     // been written to job working directory.                
@@ -243,23 +243,19 @@ public class PbsJobRunner implements JobRunner {
                         else {
                             drmJobStatus = new DrmJobStatus.Builder(drmJobId, DrmJobState.FAILED).exitCode(-1).jobStatusMessage("job finished but exit code is not 0, return " + pbsJobStatus).build();
                         }
-
+ 
                         // finish checking the epilogue file, we need to delete this file and the original epilogue.sh file
                         try {
 
                             File epilogueSh = new File(workDirPath, "epilogue.sh");
                             File commandPBS = new File(workDirPath, "command.pbs");
 
-                            //if (epilogueOut.delete()) {
-                            //    log.debug(epilogueOut.getName() + " is deleted!");
+
+                            //if (epilogueSh.delete()) {
+                            //    log.debug(epilogueSh.getName() + " is deleted!");
                             //} else {
-                            //    log.error("Epilogue out file delete operation is failed.");
+                            //    log.error("Epilogue sh file delete operation is failed.");
                             //}
-                            if (epilogueSh.delete()) {
-                                log.debug(epilogueSh.getName() + " is deleted!");
-                            } else {
-                                log.error("Epilogue sh file delete operation is failed.");
-                            }
 
                             //if (commandPBS.delete()) {
                             //    log.debug(commandPBS.getName() + " is deleted!");
@@ -274,7 +270,7 @@ public class PbsJobRunner implements JobRunner {
 
                         // If we can not find both stdout and epilogue.pbs file, 
                         // then there must be something wrong. 
-                        drmJobStatus = new DrmJobStatus.Builder(drmJobId, DrmJobState.FAILED).exitCode(-1).jobStatusMessage("can not find both psb output and stderr, something must be wrong, return " + pbsJobStatus).build();
+                        drmJobStatus = new DrmJobStatus.Builder(drmJobId, DrmJobState.FAILED).exitCode(-1).jobStatusMessage("can not find both pbs epilogue outputs, something must be wrong, return " + pbsJobStatus).build();
                     }
 
                 } else if (pbsJobStatus.trim().compareToIgnoreCase("Q") == 0) {

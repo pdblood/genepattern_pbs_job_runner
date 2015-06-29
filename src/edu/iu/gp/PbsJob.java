@@ -12,7 +12,9 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.genepattern.drm.DrmJobSubmission;
 import org.genepattern.drm.Memory;
-
+import org.genepattern.server.config.GpConfig;
+import org.genepattern.server.config.GpContext;
+import org.genepattern.server.genepattern.CustomXmxFlags;
 /**
  *
  * @author lewu@iu.edu
@@ -54,7 +56,7 @@ public class PbsJob {
     private String wallTime = "1:00:00";
     private String ctime = "N/A";
     private String queue = "N/A";
-    private String vmem = "4gb";
+    private String vmem = "4gb";// just for safetys
     private String errrorPath = "N/A";
     private String outputPath = "N/A";
     private String VariablesList = "N/A";
@@ -81,11 +83,57 @@ public class PbsJob {
         this.outputPath = stdOut;
         this.errrorPath = stdErr;
         this.outputDir = workDir;
+        
+        
+        // We will need to take care about the java heap size and overall PBS 
+        // job memory size requests here 
+        Memory javaXmxMin=drmJobSubmission.getGpConfig().getGPMemoryProperty(drmJobSubmission.getJobContext(), "job.javaXmxMin");
+        Memory javaXmxPad=drmJobSubmission.getGpConfig().getGPMemoryProperty(drmJobSubmission.getJobContext(), "job.javaXmxPad");
+        
+        List<String> cmdLine;
+        if (javaXmxMin==null) {
+            // by default, don't adjust the -Xmx flag
+            cmdLine=drmJobSubmission.getCommandLine();
+        }
+        else {
+            // when javaXmxMin is set, adjust the command line
+            cmdLine=adjustXmxFlag(drmJobSubmission, javaXmxMin);
+        }
+
+        
+        // by default, use the job.memory from the config
+        Memory queueMem=drmJobSubmission.getMemory();
+        Memory defaultMem = queueMem;
+        Memory xmxMem=getXmxMem(cmdLine);
+        if (javaXmxPad != null) {
+            if (xmxMem != null) {
+                // pad the queue memory when there is an Xmx arg and job.javaXmxPad is set
+                queueMem=Memory.fromSizeInBytes( xmxMem.getNumBytes() + javaXmxPad.getNumBytes() );
+            }
+        }
+        else if (xmxMem != null) {
+            //special-case, adjust queueMem >= javaXmx
+            if (xmxMem.getNumBytes() > queueMem.getNumBytes()) {
+                queueMem=xmxMem;
+            }
+        }
+  
+        if (queueMem.getNumBytes() <= defaultMem.getNumBytes()){
+            queueMem = defaultMem;
+        }    
+       
+        // we will need to use queueMem value to set memory request 
+        if (queueMem != null) {
+            this.vmem = ((long) Math.ceil(queueMem.numGb())) + "gb";
+            log.debug("PBS default memory: " + this.vmem);
+        }
+ 
 
         // Iterate the commandLine array to build the real command string
         // for further job submission
         // initialize the commandLine as a string.
-        String pbsCommand = wrapCommandLineArgsInSingleQuotes(drmJobSubmission.getCommandLine());
+        //String pbsCommand = wrapCommandLineArgsInSingleQuotes(drmJobSubmission.getCommandLine());
+        String pbsCommand = wrapCommandLineArgsInSingleQuotes(cmdLine);
 
         // if there is a logFile, stream stdout from the module to the stdoutFile
         final String jobReportFilename;
@@ -119,17 +167,14 @@ public class PbsJob {
             this.ppn = drmJobSubmission.getCpuCount().toString();
         }
         
-        if (drmJobSubmission.getMemory() != null) {
-            Memory jobMem = drmJobSubmission.getMemory();
-            this.vmem = ((long) Math.ceil(jobMem.numGb())) + "gb";
-            log.debug("PBS default memory: " + this.vmem);
-        }
+        
+
 
         if (drmJobSubmission.getExtraArgs() != null && drmJobSubmission.getExtraArgs().size() > 0) {
             String extraArgs = drmJobSubmission.getExtraArgs().toString();
             //we will need to do some extra setting , if we have extra arguments
         }
-
+    
         // We can then overwrite the default PBS parameters before building the script
         if (drmJobSubmission.getProperty("pbs.host") != null) {
             this.hostName = drmJobSubmission.getProperty("pbs.host");
@@ -270,6 +315,83 @@ public class PbsJob {
     }
 
 
+ 
+    
+    /**
+     * For the given job, adjust the command line args to set the '-Xmx' java memory flag 
+     * to be greater than or equal to the min value.
+     * 
+     * @param job, the job to run
+     * @param minXmx, the minimum Xmx memory value required by the system (e.g. 1 Gb)
+     * @return, an adjusted command line to be submitted to the queue
+     */
+    protected List<String> adjustXmxFlag(DrmJobSubmission job) {
+        Memory javaXmxMin=job.getGpConfig().getGPMemoryProperty(job.getJobContext(), "job.javaXmxMin");
+        return adjustXmxFlag(job, javaXmxMin);
+    }
+
+    protected List<String> adjustXmxFlag(DrmJobSubmission job, Memory javaXmxMin) {
+        if (javaXmxMin==null) {
+            return job.getCommandLine();
+        }
+        Memory xmxFromCmdLine=getXmxMem(job);
+        if (xmxFromCmdLine != null && xmxFromCmdLine.getNumBytes() < javaXmxMin.getNumBytes()) {
+            // increase the Xmx flag
+            return replaceXmxFlag(job.getCommandLine(), javaXmxMin);
+        }
+        else {
+            return job.getCommandLine();
+        }
+    }
+    
+    /**
+     * Get the Xmx flag from job's the command line; before adjusting based on the optional 'job.javaXmxMin' setting. 
+     * @param job
+     * @return the xmx value or null if none set
+     */
+    protected Memory getXmxMem(DrmJobSubmission job) {
+        return getXmxMem(job.getCommandLine());
+    }
+
+    /**
+     * Get the Xmx flag from the list of command line args
+     * @param job
+     * @return the xmx value or null if none set
+     */
+    protected Memory getXmxMem(List<String> cmdLine) {
+        for(final String arg : cmdLine) {
+            if (arg.startsWith("-Xmx")) {
+                return Memory.fromString(arg.substring(4));
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Replace the command line with an adjusted java xmx flag
+     * @param cmdLineArgsIn, the initial command line
+     * @param adjustedXmxMem, the adjusted Xmx value
+     * @return the new command line
+     */
+    protected static List<String> replaceXmxFlag(List<String> cmdLineArgsIn, final Memory adjustedXmxMem) {
+        if (adjustedXmxMem==null) {
+            return cmdLineArgsIn;
+        }
+        final List<String> cmdLineArgsOut=new ArrayList<String>();
+        for(final String arg : cmdLineArgsIn) {
+            if (arg.contains("-Xmx")) {
+                //replace existing -Xmx flag
+                String updated=CustomXmxFlags.replaceXmx(adjustedXmxMem,arg);
+                cmdLineArgsOut.add(updated);
+            }
+            else {
+                cmdLineArgsOut.add(arg);
+            }
+        }
+        return cmdLineArgsOut;
+    }    
+    
+    
 
     /**
      *

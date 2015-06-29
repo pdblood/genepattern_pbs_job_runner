@@ -24,6 +24,7 @@ public class CommandTemplate {
     private String pbsFile;
     private String epiFile;
     private String header = "#!/bin/bash";
+    
 
     public CommandTemplate(String workDir, String pbsCommand) throws IOException {
         this.command = pbsCommand;
@@ -62,7 +63,7 @@ public class CommandTemplate {
 
     public void createEpilogueFile() throws IOException {
 
-        File epiOutFile = new File(workDir, "epilogue.sh");
+        File epiOutFile = new File(workDir, ".epilogue.sh");
         epiOutFile.setExecutable(true);
         epiOutFile.setWritable(true);
 
