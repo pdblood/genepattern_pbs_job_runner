@@ -45,7 +45,7 @@ public class PbsJob {
 
     private String id;
     private String Name = "N/A";
-    private String nodes = "dxcapp06.psc.edu";
+    private String nodes = "1";
     private String ppn = "4";
     private ArrayList<String> afterany = new ArrayList<String>();
     private ArrayList<String> afterOK = new ArrayList<String>();
